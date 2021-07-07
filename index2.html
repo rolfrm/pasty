@@ -1,0 +1,36 @@
+<html>
+  <head>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <h1>Pasty!</h1>
+      
+    <div id="sessions">
+      
+      <div id="session">
+      <form id="fileSelector" method="POST">
+	<input type="file" id="selectedFile" name="filename">
+	<input type="submit">
+      </form>
+      <progress id="upload-progress" value="0" max="100"> 0% </progress>
+      <table id="session-files">
+	<thead>
+	  <tr>
+	    <td>File</td>
+	    <td>ID</td>
+	    <td>Select</td>
+	  <tr/>
+	</thead>
+	<tbody>
+	  <tr>
+	  </tr>
+	</tbody>
+      </table>
+      <table id="action-buttons">
+	<tr> <td><button onclick="deleteSelected()">delete</button></td></tr>
+      </table>
+      </div>
+      </div>
+    <script src="/code.js"></script>
+  </body>
+</html>

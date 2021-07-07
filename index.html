@@ -1,0 +1,37 @@
+<html>
+  <head>
+    <script src="https://unpkg.com/vue@next"></script>
+  </head>
+  <body>
+    <h1>Pasty!</h1>
+      
+    <div id="bind-attribute" v-model="sessions[0]">
+      
+
+      <div v-for="session in sessions">
+      <h1>{{session.name}}</h1>
+      Select a file to upload!.
+
+      <form id="fileSelector" method="POST">
+	<input type="file" id="selectedFile" name="filename" @change="previewFiles">
+	<input type="submit" @click="submit">
+      </form>
+      <progress id="upload-progress" v-bind:value="session.uploadComplete" max="100"> 0% </progress>
+      <h1 id="result0"></h1>
+      <a id="result"></a>
+      <a id="result2"></a>
+    
+      
+      <button @click="save()">Save</button>
+      <table>
+	<tr v-for="item in session.files">
+	  <td>{{item.name}}</td>
+	  <td>{{item.id}}</td>
+	  <td><a v-bind:href="'/delete?file='+ item.id">delete</a></td>
+	</tr>
+      </table>
+      </div>
+      </div>
+    <script src="code.js"></script>
+  </body>
+</html>
