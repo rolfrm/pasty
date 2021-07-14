@@ -1,4 +1,4 @@
-#/bin/sh
+#/bin/bash
 UUID=`uuidgen`
 
 if ! [[ $request_length =~ ^-?[0-9]+$ ]] ; then
