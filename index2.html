@@ -1,6 +1,7 @@
 <html>
   <head>
     <link rel="stylesheet" href="style.css">
+	 
   </head>
   <body>
     <h1>Pasty!</h1>
@@ -8,9 +9,12 @@
       <div id="session">
 	<form id="fileSelector" method="POST">
 	  <input type="file" id="selectedFile" name="filename">
-	  <input type="submit" Value="Upload">  </input>
+	  <p>Password (optional):</p>
+	  <input type="password" id="selectedPassword" name="password"/>
+	  
 	</form>
-	<progress id="upload-progress" value="0" max="100"> 0% </progress>
+	<button id="uploadButton" Value="Upload">Upload  </button>
+	<progress id="upload-progress" value="0" max="100"> 0pct </progress>
 	<h2>Files</h2>
       <table id="session-files">
 	<thead>
@@ -27,10 +31,15 @@
 	</tbody>
       </table>
       <table id="action-buttons">
-	<tr> <td><button onclick="deleteSelected()">delete</button></td></tr>
+	<tr>
+	  <td><button onclick="deleteSelected()">delete</button></td>
+	  <td><button onclick="downloadSelected()">download</button></td>
+	  <td><button onclick="ping()">ping</button></td>
+	</tr>
+
       </table>
       </div>
-      </div>
+    </div>
     <script src="/code.js"></script>
   </body>
 </html>

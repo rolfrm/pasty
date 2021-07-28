@@ -1,0 +1,36 @@
+endpoints:
+  index.html:
+    call: cat index2.html
+    response-type: text/html
+  /:
+    call: cat index2.html
+    response-type: text/html
+  code.js:
+    call: cat readablestreams.polyfill.min.js pasty.js crypto-base.js crypto.js code2.js sw2-lib.js
+    response-type: text/javascript
+  pasty.wasm:
+    call: cat pasty.wasm
+    response-type: application/wasm
+    match-encoding:
+      gzip:
+        call: gzip --best --stdout pasty.wasm
+        content-encoding: gzip
+        cache: true
+        
+  sw2.js:
+    call: cat pasty.js crypto-base.js sw2-lib.js sw2.js
+    response-type: text/javascript
+  style.css:
+    call: cat style.css
+    response-type: text/css
+  upload:
+    call: bash -c ./upload-file.sh
+  upload-ws:
+    call: bash -c ./upload-file-ws.sh
+  download-ws:
+    call: bash -c ./download-file-ws.sh
+  download:
+    call: bash -c ./download-file.sh
+  delete:
+    call: bash -c ./delete-file.sh
+host: localhost:8890

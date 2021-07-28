@@ -1,8 +1,10 @@
+
 let form  = document.getElementById('fileSelector');
 let file_elem = document.getElementById('selectedFile');
 let progress = document.getElementById('upload-progress')
 let table = document.getElementById('session-files')
-
+let pass = document.getElementById('selectedPassword');
+let uploadButton = document.getElementById('uploadButton');
 trunc3 = function(s,p ){
     return Math.trunc(s / p) * p;
     
@@ -82,16 +84,16 @@ function uploadFile1(){
     var req = new XMLHttpRequest();
     
     req.onload = function(e){
-	sessionData.files.push({ name: file.name, file: req.response, size: file.size})
-	updateSessionData();
-	saveSessionData(sessionData)
+		  sessionData.files.push({ name: file.name, file: req.response, size: file.size})
+		  updateSessionData();
+		  saveSessionData(sessionData)
     }
     req.open("post", "/upload");
     function updateProgress (oEvent) {
-	if (oEvent.lengthComputable) {
-	    var percentComplete = oEvent.loaded / oEvent.total * 100;
-	    progress.value = percentComplete;
-	}
+		  if (oEvent.lengthComputable) {
+				var percentComplete = oEvent.loaded / oEvent.total * 100;
+				progress.value = percentComplete;
+		  }
     }
 
     req.upload.addEventListener("progress", updateProgress);
@@ -115,69 +117,95 @@ function connectWs(url){
             resolve(server);
         };
         server.onerror = function(err) {
-	    reject(err);
-	    
+				reject(err);
         };
-	server.xmessages = [];
-	server.readers = [];
-
-	server.onclose = function(){
-	    while(true){
-		reader = server.readers.shift();
-		if(reader){
-		    reader.reject("Connection closed");
-		}else{
-		    break;
-		}
-	    }
-	};
-	
-	server.onmessage = function(msg) {
-	    reader = server.readers.shift();
-	    if(reader){
-		reader.resolve(msg);
-	    }else{
-		server.xmessages.push(msg)
-	    }
-	}
-	server.readAsync = function(){
-	    return new Promise(function(resolve, reject){
-		msg = server.xmessages.shift()
-		server.readers.push({resolve: resolve, reject: reject})
-	    });
-	}
+		  server.xmessages = [];
+		  server.readers = [];
+		  
+		  server.onclose = function(){
+				while(true){
+					 reader = server.readers.shift();
+					 if(reader){
+						  reader.reject("Connection closed");
+					 }else{
+						  break;
+					 }
+				}
+		  };
+		  
+		  server.onmessage = function(msg) {
+				reader = server.readers.shift();
+				if(reader){
+					 reader.resolve(msg);
+				}else{
+					 server.xmessages.push(msg)
+				}
+		  }
+		  server.readAsync = function(){
+				return new Promise(function(resolve, reject){
+					 msg = server.xmessages.shift()
+					 if(msg){
+						  resolve(msg);
+					 }else{
+						  server.readers.push({resolve: resolve, reject: reject})
+					 }
+				});
+		  }
     });
 }
 
+
 async function uploadFile2(){
-    var socket = await connectWs(to_ws("/upload-ws"));
     var fileList = file_elem.files;
     var file = fileList[0];
-    socket.send(new BigInt64Array([BigInt(file.size)]));
+
+    var socket = await connectWs(to_ws("/upload-ws"));
+    var stream = file.stream();
+	 var fileSize = file.size
+	 var prepend = null
+	 
+	 if(pass.value && pass.value != ""){
+		  let padded = pass.value.padEnd(32, " ")
+		  let key = CArray.FromString(padded)
+		  let iv = CArray.FromSize(16)
+		  window.crypto.getRandomValues(iv.GetView())
+		  let enc = Cipher.Encryptor(key, iv)
+		  key.Dispose()
+		  
+		  let tra = new EncryptStreamTransform(enc)
+		  stream = wrapStream(stream).pipeThrough(tra)
+		  // assume an encryption block size of 16 bytes
+		  fileSize = Math.floor((fileSize - 1) / 16 + 1) * 16 + iv.len
+		  prepend = iv.ToArray()
+		  console.log("IV", prepend)
+		  iv.Dispose()
+	 }
+	 socket.send(new BigInt64Array([BigInt(fileSize)]));
+	 if(prepend)
+		  socket.send(prepend);
+	 
+	 var reader = stream.getReader();
+    var transmitted = 0;
     
-    reader = file.stream().getReader()
     while(true){
-	result = await reader.read()
-	if(result.done)
-	    break;
-	console.log(result);
-	socket.send(result.value);	
+		  var {done, value} = await reader.read()
+		  
+		  if(done)
+				break;
+		  socket.send(value);
+		  transmitted += value.length;
+		  var percentComplete = transmitted / file.size * 100;
+		  progress.value = percentComplete;
     }
-
     var msg = await socket.readAsync();
-    console.log(msg.data);
-    msg = await socket.readAsync();
-    console.log(msg.data);
-    
     socket.close();
-
+    sessionData.files.push({ name: file.name, file: msg.data, size: file.size, pass: pass.value})
+    updateSessionData();
+    saveSessionData(sessionData)
 }
 
 
-form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    uploadFile2();
-});
+uploadButton.onclick = uploadFile2;
 
 
 getSelected = function(){
@@ -196,25 +224,64 @@ deleteSelected = function(){
     toRemove = getSelected();
 
     for(const x of toRemove){
-	var req = new XMLHttpRequest();
-	req.open("get", "/delete?file=" + x.file);
-	req.onload = function(e){
-	    console.log("Deleted " + x.file);
-	}
-	req.send();
+		  var req = new XMLHttpRequest();
+		  req.open("get", "/delete?file=" + x.file);
+		  req.onload = function(e){
+				console.log("Deleted " + x.file);
+		  }
+		  req.send();
     }
-
+	 
     sessionData.files = sessionData.files.filter(x => toRemove.indexOf(x) < 0);
     updateSessionData();
     saveSessionData(sessionData);
 
 }
 
-
-function AESTransformStream() {
-    return new TransformStream({
-	transform(chunk, controller) {
-            controller.enqueue(chunk)
-	}
-    });
+function startDownload(filePath, name) {
+	 console.log("Download", filePath)
+	 var link = document.createElement('a');
+	 link.href = filePath;
+	 link.download = name;
+	 link.click();
 }
+
+
+function downloadfile(file){
+	 var url = "download2/file?file=" + file.file + "&size=" + file.size.toString()
+	 if(file.pass)
+		  url= url + "&pass=" + file.pass
+	 
+	 startDownload(url, file.name);
+}
+
+
+function downloadSelected(){
+    toDownload = getSelected();
+    for(const x of toDownload){
+		  downloadfile(x);
+    }
+}
+
+async function ping(){
+    response = await fetch("http://localhost:8889/download2/test2")
+    text = await response.text() 
+    console.log(text)    
+}
+
+window.addEventListener('load', async function() {
+    await navigator.serviceWorker.getRegistrations().then(function(registrations) {
+	for(let registration of registrations) {
+	    registration.unregister()
+	} })
+
+    var reg = await navigator.serviceWorker.register('/sw2.js', {})
+
+    if(reg.installing) {
+	console.log('Service worker installing');
+    } else if(reg.waiting) {
+      console.log('Service worker installed');
+    } else if(reg.active) {
+      console.log('Service worker active');
+    }
+  })
