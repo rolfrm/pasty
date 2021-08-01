@@ -1,81 +1,4 @@
 
-async function doCopyStream(input, controller){
-    var reader = input.getReader();
-    while(true){
-		  var {done, value} = await reader.read()
-		  if(done)
-				break;
-		  controller.enqueue(value)
-    }
-    controller.close()
-}
-
-function copyStream (stream) {
-    return new ReadableStream({
-		  start (controller) {
-				doCopyStream(stream, controller);	    
-		  },
-		  cancel () {
-				console.log('user aborted')
-		  }
-    })
-}
-
-async function decryptStream(str, pass){
-	 let rd = str.getReader()
-	 let {value, done} = await rd.read()
-	 let iv = CArray.FromArray(value.subarray(0, 16))
-	 console.log("IV", done, iv.ToArray())
-	 let padded = pass.padEnd(32, " ")
-	 let key = CArray.FromString(padded)
-	 let decryptor = Cipher.Decryptor(key, iv)
-	 var rest = value.subarray(16)
-	 let rd2 = new ReadableStream(
-		  {
-				async pull(controller){
-					 console.log("pull...")
-					 if(rest){
-						  let c1 = CArray.FromArray(rest)
-						  let buffer = CArray.FromSize(rest.length)
-
-						  let l = decryptor.Update(c1, buffer)
-						  if(l > 0)
-								controller.enqueue(buffer.GetSlice(0, l).ToArray())
-						  c1.Dispose()
-						  buffer.Dispose()
-						  rest = null
-					 }
-					 console.log("pulling next:")
-					 let r = await rd.read()
-					 const {value, done} = r;
-
-					 if (done){
-						  
-						  let buffer = CArray.FromSize(16)
-						  let l = decryptor.Finish(buffer)
-						  let chunk = buffer.GetSlice(0, l).ToArray();
-						  console.log("pull done", chunk)
-						  if(l > 0)
-								controller.enqueue(chunk)
-						  buffer.Dispose()
-						  controller.close()
-						  decryptor.Dispose()
-						  return;
-					 }
-					 let c1 = CArray.FromArray(value)
-					 let buffer = CArray.FromSize(c1.len)
-
-					 let l = decryptor.Update(c1, buffer)
-					 let chunk = buffer.GetSlice(0, l).ToArray()
-					 console.log("pull part", chunk)
-					 controller.enqueue(chunk)
-					 c1.Dispose()
-					 buffer.Dispose()
-				}
-		  }
-	 );
-	 return rd2
-}
 
 async function getDecryptedStream(response, pass, headers){
 	 let r = await response
@@ -83,7 +6,7 @@ async function getDecryptedStream(response, pass, headers){
 	 return new Response(stream, {headers: headers});
 }
 
-self.addEventListener( "fetch", event => {
+self.onfetch = event => {
 
     if(event.request.url.indexOf("/download2/") < 0)
 		  return
@@ -118,5 +41,5 @@ self.addEventListener( "fetch", event => {
     }
     var pong = new Response('pong2')
     return event.respondWith(pong);
-});
+}
 

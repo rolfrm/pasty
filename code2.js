@@ -14,22 +14,22 @@ trunc2 = function(s){
     return trunc3(s, 0.01).toFixed(2);
 }
 
+
+
 getSizeString = function(s){
     if(s < 1000)
-	return s.toString() + " B"
+		  return s.toString() + " B"
     if(s < 1000000)
-	return trunc2(s / 1000, 0.1).toString() + " kB";
+		  return trunc2(s / 1024, 0.1).toString() + " kB";
     if(s < 1000000000)
-	return trunc2(s / 1000000,0.1).toString() + " MB";
-    
+		  return trunc2(s / (1024 * 1024),0.1).toString() + " MB";
     return trunc2(s / 1000000000,0.1).toString() + " GB";
     
 }
 
 sessionData = {
     files: [
-	{name : "hej", file: "asdasd"},
-	{name: "hejhej", file: "asdasd2"}
+		  {name : "name", file: "fild ID"},
     ]
 }
 
@@ -57,16 +57,18 @@ clearTable = function(){
 updateSessionData = function() {
     clearTable();
     for(const x of sessionData.files){
-	row = table.insertRow(1);
-	cell0 = row.insertCell(0);
-	cell0.innerHTML = "<a href=\"/download?file=" + x.file + "\" download=\"" + x.name +"\">" +x.name + "</a>";
-	cell1 = row.insertCell(1);
-	cell1.innerHTML = getSizeString(x.size);
-	cell2 = row.insertCell(2);
-	cell2.innerHTML = x.file;
-	cell3 = row.insertCell(3);
-	cell3.innerHTML = "<input type=\"checkbox\"></input>"
-	row.data = x;
+		  row = table.insertRow(1);
+		  cell0 = row.insertCell(0);
+		  cell0.innerHTML = "<a href=\"/download?file=" + x.file + "\" download=\"" + x.name +"\">" +x.name + "</a>";
+		  cell1 = row.insertCell(1);
+		  cell1.innerHTML = getSizeString(x.size);
+		  cell2 = row.insertCell(2);
+		  cell2.innerHTML = x.file;
+		  cell3 = row.insertCell(3);
+		  cell3.innerHTML = "<input type=\"checkbox\"></input>"
+		  cell4 = row.insertCell(4)
+		  cell4.innerHTML = x.pass ? "yes" : "no";
+		  row.data = x;
     }
 }
 
@@ -175,13 +177,15 @@ async function uploadFile2(){
 		  let tra = new EncryptStreamTransform(enc)
 		  stream = wrapStream(stream).pipeThrough(tra)
 		  // assume an encryption block size of 16 bytes
-		  fileSize = Math.floor((fileSize - 1) / 16 + 1) * 16 + iv.len
+		  // AES encryption padding of 1-16 bytes (even if the input is %16.)
+		  // also add the IV in the beginning of the stream.
+		  fileSize = Math.floor((fileSize) / 16 + 1) * 16 + iv.len
 		  prepend = iv.ToArray()
 		  console.log("IV", prepend)
 		  iv.Dispose()
 	 }
 	 socket.send(new BigInt64Array([BigInt(fileSize)]));
-	 if(prepend)
+	 if(prepend) // send the IV bytes first (after size)
 		  socket.send(prepend);
 	 
 	 var reader = stream.getReader();
@@ -248,7 +252,7 @@ function startDownload(filePath, name) {
 
 
 function downloadfile(file){
-	 var url = "download2/file?file=" + file.file + "&size=" + file.size.toString()
+	 var url = "http://localhost:8890/download2/file?file=" + file.file + "&size=" + file.size.toString()
 	 if(file.pass)
 		  url= url + "&pass=" + file.pass
 	 
